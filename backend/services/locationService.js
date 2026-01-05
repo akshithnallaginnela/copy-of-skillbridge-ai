@@ -1,4 +1,4 @@
-import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js';
+const { Client } = require('@googlemaps/google-maps-services-js');
 
 const client = new Client({});
 
@@ -10,7 +10,7 @@ const client = new Client({});
  */
 
 // Geocode an address to coordinates
-export const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+const geocodeAddress = async (address) => {
     try {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
@@ -37,7 +37,7 @@ export const geocodeAddress = async (address: string): Promise<{ lat: number; ln
 };
 
 // Reverse geocode coordinates to address
-export const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+const reverseGeocode = async (lat, lng) => {
     try {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) return null;
@@ -60,10 +60,7 @@ export const reverseGeocode = async (lat: number, lng: number): Promise<string |
 };
 
 // Calculate distance between two points
-export const calculateDistance = async (
-    origin: { lat: number; lng: number },
-    destination: { lat: number; lng: number }
-): Promise<{ distance: string; duration: string } | null> => {
+const calculateDistance = async (origin, destination) => {
     try {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) return null;
@@ -91,10 +88,7 @@ export const calculateDistance = async (
 };
 
 // Calculate distances for multiple destinations
-export const calculateMultipleDistances = async (
-    origin: { lat: number; lng: number },
-    destinations: Array<{ id: string; lat: number; lng: number }>
-): Promise<Array<{ id: string; distance: string; duration: string; distanceValue: number }>> => {
+const calculateMultipleDistances = async (origin, destinations) => {
     try {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) return [];
@@ -109,9 +103,9 @@ export const calculateMultipleDistances = async (
             }
         });
 
-        const results: Array<{ id: string; distance: string; duration: string; distanceValue: number }> = [];
+        const results = [];
 
-        response.data.rows[0]?.elements.forEach((element: any, index: number) => {
+        response.data.rows[0]?.elements.forEach((element, index) => {
             if (element.status === 'OK') {
                 results.push({
                     id: destinations[index].id,
@@ -130,12 +124,7 @@ export const calculateMultipleDistances = async (
 };
 
 // Find nearby places (for suggesting job locations)
-export const findNearbyPlaces = async (
-    lat: number,
-    lng: number,
-    type: string = 'point_of_interest',
-    radius: number = 5000
-): Promise<Array<{ name: string; address: string; lat: number; lng: number }>> => {
+const findNearbyPlaces = async (lat, lng, type = 'point_of_interest', radius = 5000) => {
     try {
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) return [];
@@ -149,7 +138,7 @@ export const findNearbyPlaces = async (
             }
         });
 
-        return response.data.results.map((place: any) => ({
+        return response.data.results.map((place) => ({
             name: place.name,
             address: place.vicinity || '',
             lat: place.geometry.location.lat,
@@ -162,7 +151,7 @@ export const findNearbyPlaces = async (
 };
 
 // Default coordinates for major Indian cities
-export const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+const CITY_COORDINATES = {
     'Bangalore': { lat: 12.9716, lng: 77.5946 },
     'Mumbai': { lat: 19.0760, lng: 72.8777 },
     'Delhi': { lat: 28.6139, lng: 77.2090 },
@@ -171,4 +160,13 @@ export const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
     'Kolkata': { lat: 22.5726, lng: 88.3639 },
     'Pune': { lat: 18.5204, lng: 73.8567 },
     'Ahmedabad': { lat: 23.0225, lng: 72.5714 }
+};
+
+module.exports = {
+    geocodeAddress,
+    reverseGeocode,
+    calculateDistance,
+    calculateMultipleDistances,
+    findNearbyPlaces,
+    CITY_COORDINATES
 };
