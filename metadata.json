@@ -1,0 +1,9 @@
+{
+  "name": "Copy of SkillBridge AI",
+  "description": "A professional portfolio and gig marketplace for blue-collar experts. Features AI-powered voice-to-profile generation, work galleries, and location-based hiring.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
