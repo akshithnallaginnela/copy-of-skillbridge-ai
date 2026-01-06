@@ -10,7 +10,7 @@ import {
 } from '../services/firebaseService';
 import { User as UserType } from '../types';
 import { db } from '../services/firebaseService';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 interface FindWorkProps {
     user: UserType | null;
@@ -35,21 +35,29 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
     useEffect(() => {
         setIsLoading(true);
 
-        // Query for open gigs only
+        // First try to get all gigs without filter (more reliable)
         const gigsRef = collection(db, 'gigs');
-        const q = query(
-            gigsRef,
-            where('status', '==', 'open'),
-            orderBy('createdAt', 'desc')
-        );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const gigsData: Gig[] = [];
+        const unsubscribe = onSnapshot(gigsRef, (snapshot) => {
+            const allGigs: Gig[] = [];
             snapshot.forEach((doc) => {
-                gigsData.push({ id: doc.id, ...doc.data() } as Gig);
+                allGigs.push({ id: doc.id, ...doc.data() } as Gig);
             });
-            console.log('Fetched gigs:', gigsData.length);
-            setGigs(gigsData);
+
+            console.log('All gigs in Firestore:', allGigs.length, allGigs.map(g => ({ id: g.id, title: g.title, status: g.status })));
+
+            // Filter for open gigs in-memory
+            const openGigs = allGigs.filter(g => g.status === 'open');
+
+            // Sort by createdAt (newest first)
+            openGigs.sort((a, b) => {
+                const aTime = a.createdAt ? (a.createdAt as any).seconds || 0 : 0;
+                const bTime = b.createdAt ? (b.createdAt as any).seconds || 0 : 0;
+                return bTime - aTime;
+            });
+
+            console.log('Open gigs after filter:', openGigs.length);
+            setGigs(openGigs);
             setIsLoading(false);
         }, (error) => {
             console.error('Error fetching gigs:', error);
@@ -214,8 +222,8 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                             onClick={() => handleAcceptGig(gig)}
                                             disabled={acceptingGigId === gig.id || !user}
                                             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${acceptingGigId === gig.id
-                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                                                 }`}
                                         >
                                             {acceptingGigId === gig.id ? (
