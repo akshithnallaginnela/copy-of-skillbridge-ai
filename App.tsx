@@ -326,7 +326,7 @@ const App: React.FC = () => {
       />
     )
   }
-    </div >
+    </>
   );
 };
 
