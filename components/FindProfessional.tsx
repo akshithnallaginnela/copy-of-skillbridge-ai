@@ -2,13 +2,37 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Star, Award, Briefcase, CheckCircle, MessageCircle,
-    Search, Filter, Sparkles, Crown, Zap, Wrench, Paintbrush, Scissors, Car
+    Search, Filter, Crown, Zap, Wrench, Paintbrush, Scissors, Car, UserPlus
 } from 'lucide-react';
-import {
-    ProfessionalProfile,
-    subscribeToProfessionals
-} from '../services/firebaseService';
+import { db } from '../services/firebaseService';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { User as UserType } from '../types';
+
+interface ProfessionalProfile {
+    id: string;
+    userId: string;
+    name: string;
+    email: string;
+    bio: string;
+    skills: string[];
+    category: string;
+    experience: string;
+    rating: number;
+    completedGigs: number;
+    isAvailable: boolean;
+}
+
+interface RegisteredProfessional {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    bio?: string;
+    skills?: string[];
+    category?: string;
+    rating?: number;
+    completedGigs?: number;
+}
 
 interface FindProfessionalProps {
     user: UserType | null;
@@ -25,38 +49,91 @@ const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
 };
 
 const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotification }) => {
-    const [professionals, setProfessionals] = useState<ProfessionalProfile[]>([]);
+    const [professionals, setProfessionals] = useState<RegisteredProfessional[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalProfile | null>(null);
+    const [selectedProfessional, setSelectedProfessional] = useState<RegisteredProfessional | null>(null);
 
-    // Subscribe to real-time professional updates
+    // Fetch registered professionals (WORKER users) from Firebase
     useEffect(() => {
         setIsLoading(true);
-        const unsubscribe = subscribeToProfessionals((updatedProfessionals) => {
-            // Sort by rating
-            const sorted = updatedProfessionals.sort((a, b) => b.rating - a.rating);
-            setProfessionals(sorted);
+
+        // First check the professionals collection
+        const professionalsRef = collection(db, 'professionals');
+        const proQuery = query(professionalsRef, where('isAvailable', '==', true));
+
+        // Also check the users collection for WORKER roles
+        const usersRef = collection(db, 'users');
+
+        const unsubscribeProfessionals = onSnapshot(proQuery, async (proSnapshot) => {
+            const allProfessionals: RegisteredProfessional[] = [];
+
+            // Add from professionals collection
+            proSnapshot.forEach((doc) => {
+                const data = doc.data();
+                allProfessionals.push({
+                    id: doc.id,
+                    name: data.name,
+                    email: data.email,
+                    role: 'WORKER',
+                    bio: data.bio,
+                    skills: data.skills || [],
+                    category: data.category,
+                    rating: data.rating || 4.5,
+                    completedGigs: data.completedGigs || 0
+                });
+            });
+
+            // Also fetch WORKER users
+            try {
+                const usersSnapshot = await getDocs(query(usersRef, where('role', '==', 'WORKER')));
+                usersSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Avoid duplicates
+                    if (!allProfessionals.find(p => p.email === data.email)) {
+                        allProfessionals.push({
+                            id: doc.id,
+                            name: data.name,
+                            email: data.email,
+                            role: 'WORKER',
+                            bio: data.bio || `Professional ${data.name} ready to help!`,
+                            skills: data.skills || ['Professional Service'],
+                            category: data.category || 'general',
+                            rating: data.rating || 4.0,
+                            completedGigs: data.completedGigs || 0
+                        });
+                    }
+                });
+            } catch (err) {
+                console.log('Error fetching users:', err);
+            }
+
+            // Sort by rating (highest first)
+            const sortedPros = allProfessionals.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            setProfessionals(sortedPros);
+            setIsLoading(false);
+        }, (error) => {
+            console.error('Error fetching professionals:', error);
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => unsubscribeProfessionals();
     }, []);
 
     const filteredProfessionals = professionals.filter((pro) => {
         const matchesCategory = filterCategory === 'all' || pro.category === filterCategory;
         const matchesSearch = !searchQuery ||
             pro.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            pro.bio.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            pro.skills.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
+            (pro.bio && pro.bio.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (pro.skills && pro.skills.some(s => s.toLowerCase().includes(searchQuery.toLowerCase())));
         return matchesCategory && matchesSearch;
     });
 
-    const uniqueCategories = professionals.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i);
+    const uniqueCategories = professionals.map(p => p.category || 'general').filter((v, i, a) => a.indexOf(v) === i);
     const categories: string[] = ['all', ...uniqueCategories];
 
-    const handleHire = (professional: ProfessionalProfile) => {
+    const handleHire = (professional: RegisteredProfessional) => {
         addNotification(
             'Contact Request Sent',
             `Your request to hire ${professional.name} has been sent!`,
@@ -82,15 +159,15 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
                     <Users className="w-8 h-8 text-blue-600" />
-                    <h1 className="text-3xl font-black text-slate-900">Find Professionals</h1>
+                    <h1 className="text-3xl font-black text-slate-900">Hire Professionals</h1>
                 </div>
-                <p className="text-slate-500">Discover and hire top-rated professionals for your needs</p>
+                <p className="text-slate-500">Discover registered professionals ready to help you</p>
             </div>
 
             {/* Real-time indicator */}
             <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 rounded-xl border border-green-200">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-green-700">Real-time updates enabled</span>
+                <span className="text-sm font-medium text-green-700">Real-time updates • Registered Professionals Only</span>
             </div>
 
             {/* Search & Filter */}
@@ -136,9 +213,10 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredProfessionals.length === 0 ? (
                         <div className="col-span-2 text-center py-16">
-                            <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                            <UserPlus className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                             <h3 className="text-xl font-bold text-slate-700 mb-2">No professionals found</h3>
                             <p className="text-slate-500">New professionals are joining every day!</p>
+                            <p className="text-sm text-slate-400 mt-2">Professionals who sign up will appear here.</p>
                         </div>
                     ) : (
                         filteredProfessionals.map((pro) => (
@@ -154,7 +232,7 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                                             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
                                                 {pro.name.charAt(0)}
                                             </div>
-                                            {pro.rating >= 4.5 && (
+                                            {(pro.rating || 0) >= 4.5 && (
                                                 <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1">
                                                     <Crown className="w-3 h-3 text-white" />
                                                 </div>
@@ -165,8 +243,8 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                                                 {pro.name}
                                             </h3>
                                             <div className="flex items-center gap-2 text-sm text-slate-500">
-                                                {CATEGORY_ICONS[pro.category] || CATEGORY_ICONS.default}
-                                                <span className="capitalize">{pro.category}</span>
+                                                {CATEGORY_ICONS[pro.category || 'default'] || CATEGORY_ICONS.default}
+                                                <span className="capitalize">{pro.category || 'Professional'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -174,21 +252,21 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                                     {/* Rating & Stats */}
                                     <div className="flex items-center gap-4 mb-4">
                                         <div className="flex items-center gap-1">
-                                            {renderStars(pro.rating)}
-                                            <span className="text-sm font-semibold text-slate-700 ml-1">{pro.rating.toFixed(1)}</span>
+                                            {renderStars(pro.rating || 4)}
+                                            <span className="text-sm font-semibold text-slate-700 ml-1">{(pro.rating || 4).toFixed(1)}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-sm text-slate-500">
                                             <CheckCircle className="w-4 h-4 text-green-500" />
-                                            <span>{pro.completedGigs} gigs done</span>
+                                            <span>{pro.completedGigs || 0} gigs done</span>
                                         </div>
                                     </div>
 
                                     {/* Bio */}
-                                    <p className="text-slate-600 text-sm line-clamp-2 mb-4">{pro.bio}</p>
+                                    <p className="text-slate-600 text-sm line-clamp-2 mb-4">{pro.bio || 'Ready to help with your needs!'}</p>
 
                                     {/* Skills */}
                                     <div className="flex flex-wrap gap-2">
-                                        {pro.skills.slice(0, 3).map((skill, idx) => (
+                                        {(pro.skills || []).slice(0, 3).map((skill, idx) => (
                                             <span
                                                 key={idx}
                                                 className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
@@ -196,24 +274,22 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                                                 {skill}
                                             </span>
                                         ))}
-                                        {pro.skills.length > 3 && (
+                                        {(pro.skills || []).length > 3 && (
                                             <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded-full">
-                                                +{pro.skills.length - 3} more
+                                                +{(pro.skills || []).length - 3} more
                                             </span>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Availability Badge */}
-                                {pro.isAvailable && (
-                                    <div className="px-6 py-3 bg-green-50 border-t border-green-100 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                            <span className="text-sm font-medium text-green-700">Available for work</span>
-                                        </div>
-                                        <span className="text-sm text-green-600">Contact →</span>
+                                <div className="px-6 py-3 bg-green-50 border-t border-green-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                        <span className="text-sm font-medium text-green-700">Available for work</span>
                                     </div>
-                                )}
+                                    <span className="text-sm text-green-600">View Profile →</span>
+                                </div>
                             </div>
                         ))
                     )}
@@ -236,44 +312,40 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
                                 {selectedProfessional.name.charAt(0)}
                             </div>
                             <h2 className="text-2xl font-black text-slate-900 mb-1">{selectedProfessional.name}</h2>
-                            <p className="text-slate-500 capitalize">{selectedProfessional.category}</p>
+                            <p className="text-slate-500 capitalize">{selectedProfessional.category || 'Professional'}</p>
                         </div>
 
                         {/* Content */}
                         <div className="p-6">
                             {/* Rating */}
                             <div className="flex items-center justify-center gap-2 mb-6">
-                                {renderStars(selectedProfessional.rating)}
-                                <span className="font-bold text-lg">{selectedProfessional.rating.toFixed(1)}</span>
-                                <span className="text-slate-500">• {selectedProfessional.completedGigs} gigs completed</span>
+                                {renderStars(selectedProfessional.rating || 4)}
+                                <span className="font-bold text-lg">{(selectedProfessional.rating || 4).toFixed(1)}</span>
+                                <span className="text-slate-500">• {selectedProfessional.completedGigs || 0} gigs completed</span>
                             </div>
 
                             {/* Bio */}
                             <div className="mb-6">
                                 <h3 className="font-bold text-slate-900 mb-2">About</h3>
-                                <p className="text-slate-600">{selectedProfessional.bio}</p>
-                            </div>
-
-                            {/* Experience */}
-                            <div className="mb-6">
-                                <h3 className="font-bold text-slate-900 mb-2">Experience</h3>
-                                <p className="text-slate-600">{selectedProfessional.experience}</p>
+                                <p className="text-slate-600">{selectedProfessional.bio || 'Ready to help with your needs!'}</p>
                             </div>
 
                             {/* Skills */}
-                            <div className="mb-6">
-                                <h3 className="font-bold text-slate-900 mb-2">Skills</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedProfessional.skills.map((skill, idx) => (
-                                        <span
-                                            key={idx}
-                                            className="px-4 py-2 bg-blue-50 text-blue-700 font-medium rounded-xl"
-                                        >
-                                            {skill}
-                                        </span>
-                                    ))}
+                            {selectedProfessional.skills && selectedProfessional.skills.length > 0 && (
+                                <div className="mb-6">
+                                    <h3 className="font-bold text-slate-900 mb-2">Skills</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedProfessional.skills.map((skill, idx) => (
+                                            <span
+                                                key={idx}
+                                                className="px-4 py-2 bg-blue-50 text-blue-700 font-medium rounded-xl"
+                                            >
+                                                {skill}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Actions */}
                             <div className="flex gap-3">

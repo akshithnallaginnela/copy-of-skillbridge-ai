@@ -2,15 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import {
     Briefcase, MapPin, DollarSign, Clock, User, CheckCircle,
-    AlertCircle, Sparkles, Filter, Search, Zap, Wrench, Paintbrush
+    Search, Filter, Zap, Wrench, Paintbrush, RefreshCw
 } from 'lucide-react';
 import {
     Gig,
-    subscribeToOpenGigs,
-    acceptGig,
-    generateSampleGigs
+    subscribeToOpenGigs
 } from '../services/firebaseService';
 import { User as UserType } from '../types';
+import { db } from '../services/firebaseService';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 interface FindWorkProps {
     user: UserType | null;
@@ -30,35 +30,47 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
     const [acceptingGigId, setAcceptingGigId] = useState<string | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [hasGeneratedSamples, setHasGeneratedSamples] = useState(false);
 
-    // Subscribe to real-time gig updates
+    // Subscribe to real-time gig updates from Firebase
     useEffect(() => {
         setIsLoading(true);
-        const unsubscribe = subscribeToOpenGigs((updatedGigs) => {
-            setGigs(updatedGigs);
+
+        // Query for open gigs only
+        const gigsRef = collection(db, 'gigs');
+        const q = query(
+            gigsRef,
+            where('status', '==', 'open'),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const gigsData: Gig[] = [];
+            snapshot.forEach((doc) => {
+                gigsData.push({ id: doc.id, ...doc.data() } as Gig);
+            });
+            console.log('Fetched gigs:', gigsData.length);
+            setGigs(gigsData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error('Error fetching gigs:', error);
             setIsLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
 
-    // Generate sample gigs if none exist
-    useEffect(() => {
-        if (!isLoading && gigs.length === 0 && !hasGeneratedSamples) {
-            generateSampleGigs().then(() => {
-                setHasGeneratedSamples(true);
-                addNotification('Sample Gigs Created', 'We added some sample gigs for testing!', 'info');
-            }).catch(err => console.error('Error generating samples:', err));
-        }
-    }, [isLoading, gigs.length, hasGeneratedSamples, addNotification]);
-
     const handleAcceptGig = async (gig: Gig) => {
         if (!user || !gig.id) return;
 
         setAcceptingGigId(gig.id);
         try {
-            await acceptGig(gig.id, user.id, user.name);
+            const gigRef = doc(db, 'gigs', gig.id);
+            await updateDoc(gigRef, {
+                status: 'accepted',
+                acceptedBy: user.id,
+                acceptedByName: user.name,
+                updatedAt: serverTimestamp()
+            });
             addNotification(
                 'Gig Accepted! 🎉',
                 `You accepted "${gig.title}". The client will be notified.`,
@@ -98,7 +110,7 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
             {/* Real-time indicator */}
             <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 rounded-xl border border-green-200">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-green-700">Real-time updates enabled</span>
+                <span className="text-sm font-medium text-green-700">Real-time updates enabled • Firebase Connected</span>
             </div>
 
             {/* Search & Filter */}
@@ -147,6 +159,7 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                             <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                             <h3 className="text-xl font-bold text-slate-700 mb-2">No gigs available</h3>
                             <p className="text-slate-500">Check back later for new opportunities!</p>
+                            <p className="text-sm text-slate-400 mt-2">Gigs posted by clients will appear here in real-time.</p>
                         </div>
                     ) : (
                         filteredGigs.map((gig) => (
@@ -201,8 +214,8 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                             onClick={() => handleAcceptGig(gig)}
                                             disabled={acceptingGigId === gig.id || !user}
                                             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${acceptingGigId === gig.id
-                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                                                 }`}
                                         >
                                             {acceptingGigId === gig.id ? (

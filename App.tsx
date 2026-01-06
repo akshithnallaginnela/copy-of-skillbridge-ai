@@ -112,7 +112,7 @@ const App: React.FC = () => {
           />
         ) : <Marketplace onSelectWorker={setSelectedWorker} />;
       case AppView.MY_GIGS:
-        return <MyGigs addNotification={addNotification} userRole={user?.role} />;
+        return <MyGigs addNotification={addNotification} userRole={user?.role} user={user} />;
       case AppView.SHOWCASE:
         return <WorkFeed onSelectWorker={handleSelectWorkerById} />;
       case AppView.FIND_NEARBY:
