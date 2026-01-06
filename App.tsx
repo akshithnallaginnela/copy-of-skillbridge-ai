@@ -115,6 +115,8 @@ const App: React.FC = () => {
         return <MyGigs addNotification={addNotification} userRole={user?.role} />;
       case AppView.SHOWCASE:
         return <WorkFeed onSelectWorker={handleSelectWorkerById} />;
+      case AppView.FIND_WORK:
+        return <FindWork user={user} addNotification={addNotification} />;
       case AppView.FIND_NEARBY:
         return <NearbyProfessionals />;
       case AppView.PROFILE:
@@ -226,13 +228,23 @@ const App: React.FC = () => {
                 SkillBridge
               </div>
               <div className="flex flex-1 justify-around sm:justify-end gap-1 sm:gap-2 md:gap-4">
-                <button
-                  onClick={() => navigate(AppView.MARKETPLACE)}
-                  className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.MARKETPLACE ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  <Search className="w-5 h-5" />
-                  <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Find Work</span>
-                </button>
+                {user?.role === 'WORKER' ? (
+                  <button
+                    onClick={() => navigate(AppView.FIND_WORK)}
+                    className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.FIND_WORK ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    <Search className="w-5 h-5" />
+                    <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Find Work</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => user ? setShowPostGig(true) : navigate(AppView.LOGIN)}
+                    className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all text-green-600 hover:text-green-700 hover:bg-green-50`}
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Post Gig</span>
+                  </button>
+                )}
                 <button
                   onClick={() => navigate(AppView.SHOWCASE)}
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.SHOWCASE ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
@@ -301,6 +313,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </footer>
+      )}
+
+      {/* Post Gig Modal */}
+      {showPostGig && (
+        <PostGig
+          user={user}
+          onClose={() => setShowPostGig(false)}
+          addNotification={addNotification}
+        />
       )}
     </div>
   );

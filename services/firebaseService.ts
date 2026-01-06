@@ -60,17 +60,26 @@ export interface ProfessionalProfile {
 
 // Gig Functions
 export const createGig = async (gig: Omit<Gig, 'id' | 'createdAt'>): Promise<string> => {
-    const docRef = await addDoc(gigsCollection, {
-        ...gig,
-        createdAt: serverTimestamp(),
-        status: 'open'
-    });
-    return docRef.id;
+    console.log('[Firebase] Creating gig:', gig.title);
+    try {
+        const docRef = await addDoc(gigsCollection, {
+            ...gig,
+            createdAt: serverTimestamp(),
+            status: 'open'
+        });
+        console.log('[Firebase] Gig created successfully with ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('[Firebase] Error creating gig:', error);
+        throw error;
+    }
 };
 
 export const getOpenGigs = async (): Promise<Gig[]> => {
+    console.log('[Firebase] Fetching open gigs...');
     const q = query(gigsCollection, where('status', '==', 'open'), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
+    console.log('[Firebase] Fetched', snapshot.docs.length, 'open gigs');
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
 };
 
@@ -92,12 +101,35 @@ export const subscribeToGigs = (callback: (gigs: Gig[]) => void) => {
     });
 };
 
-export const subscribeToOpenGigs = (callback: (gigs: Gig[]) => void) => {
+export const subscribeToOpenGigs = (callback: (gigs: Gig[]) => void, onError?: (error: Error) => void) => {
+    // Note: This query requires a composite index in Firestore
+    // Go to Firebase Console -> Firestore -> Indexes and create an index:
+    // Collection: gigs, Fields: status (Ascending), createdAt (Descending)
     const q = query(gigsCollection, where('status', '==', 'open'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-        const gigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
-        callback(gigs);
-    });
+    return onSnapshot(
+        q,
+        (snapshot) => {
+            console.log('[Firebase] Received gigs update:', snapshot.docs.length, 'documents');
+            const gigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+            callback(gigs);
+        },
+        (error) => {
+            console.error('[Firebase] Error in subscribeToOpenGigs:', error);
+            console.error('[Firebase] Error code:', error.code);
+            console.error('[Firebase] Error message:', error.message);
+
+            // Check if it's a missing index error
+            if (error.message.includes('index')) {
+                console.error('[Firebase] MISSING INDEX: Please create a composite index for the "gigs" collection.');
+                console.error('[Firebase] Fields: status (Ascending), createdAt (Descending)');
+                console.error('[Firebase] Or click the link in the error message above to create it automatically.');
+            }
+
+            if (onError) {
+                onError(error);
+            }
+        }
+    );
 };
 
 export const subscribeToMyGigs = (clientId: string, callback: (gigs: Gig[]) => void) => {

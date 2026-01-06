@@ -9,7 +9,9 @@ export enum AppView {
   SHOWCASE = 'SHOWCASE',
   LOGIN = 'LOGIN',
   PROFILE = 'PROFILE',
-  FIND_NEARBY = 'FIND_NEARBY'
+  FIND_NEARBY = 'FIND_NEARBY',
+  FIND_WORK = 'FIND_WORK',
+  POST_GIG = 'POST_GIG'
 }
 
 export interface User {
