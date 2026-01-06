@@ -107,7 +107,7 @@ const ProfessionalMap: React.FC<ProfessionalMapProps> = ({ apiKey, onSelectProfe
             }
 
             const response = await fetch(
-                `http://localhost:5000/api/location/nearby-professionals?${params}`,
+                `http://localhost:5001/api/location/nearby-professionals?${params}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -189,8 +189,8 @@ const ProfessionalMap: React.FC<ProfessionalMapProps> = ({ apiKey, onSelectProfe
                 <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-sm border ${showFilters
-                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        ? 'bg-blue-50 border-blue-200 text-blue-700'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                 >
                     <Filter className="w-5 h-5" />
@@ -222,8 +222,8 @@ const ProfessionalMap: React.FC<ProfessionalMapProps> = ({ apiKey, onSelectProfe
                                 key={cat}
                                 onClick={() => setCategory(category === cat ? '' : cat)}
                                 className={`px-4 py-2 rounded-full font-medium transition-all ${category === cat
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                             >
                                 {cat}
