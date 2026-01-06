@@ -315,6 +315,18 @@ const App: React.FC = () => {
         </footer>
       )}
     </div>
+
+      {/* Post Gig Modal */ }
+  {
+    showPostGig && (
+      <PostGig
+        user={user}
+        onClose={() => setShowPostGig(false)}
+        addNotification={addNotification}
+      />
+    )
+  }
+    </div >
   );
 };
 
