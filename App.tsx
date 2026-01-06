@@ -11,8 +11,11 @@ import NotificationSystem from './components/NotificationSystem';
 import Login from './components/Login';
 import UserProfile from './components/UserProfile';
 import NearbyProfessionals from './components/NearbyProfessionals';
+import FindWork from './components/FindWork';
+import FindProfessional from './components/FindProfessional';
+import PostGig from './components/PostGig';
 import { MOCK_WORKERS } from './constants';
-import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin } from 'lucide-react';
+import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin, Users, Plus } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.LANDING);
