@@ -81,7 +81,7 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
         return matchesCategory && matchesSearch;
     });
 
-    const categories = ['all', ...new Set(gigs.map(g => g.category))];
+    const categories: string[] = ['all', ...new Set(gigs.map(g => g.category))];
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
@@ -200,8 +200,8 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                             onClick={() => handleAcceptGig(gig)}
                                             disabled={acceptingGigId === gig.id || !user}
                                             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${acceptingGigId === gig.id
-                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                                                 }`}
                                         >
                                             {acceptingGigId === gig.id ? (
