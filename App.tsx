@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [selectedWorker, setSelectedWorker] = useState<WorkerProfile | null>(null);
   const [user, setUser] = useState<UserType | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showPostGig, setShowPostGig] = useState(false);
 
   const addNotification = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
