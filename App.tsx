@@ -94,14 +94,14 @@ const App: React.FC = () => {
           />
         );
       case AppView.MARKETPLACE:
-        return (
-          <Marketplace
-            onSelectWorker={(worker) => {
-              setSelectedWorker(worker);
-              navigate(AppView.WORKER_DETAIL);
-            }}
-          />
-        );
+        // Role-based view: Professionals see gigs (Find Work), Clients see professionals (Find Professional)
+        if (user?.role === 'WORKER') {
+          // Professional sees gigs posted by clients
+          return <FindWork user={user} addNotification={addNotification} />;
+        } else {
+          // Client sees available professionals
+          return <FindProfessional user={user} addNotification={addNotification} />;
+        }
       case AppView.PROFILE_CREATOR:
         return <ProfileCreator onProfileCreated={handleProfileCreated} />;
       case AppView.WORKER_DETAIL:
@@ -226,12 +226,24 @@ const App: React.FC = () => {
                 SkillBridge
               </div>
               <div className="flex flex-1 justify-around sm:justify-end gap-1 sm:gap-2 md:gap-4">
+                {/* Post Gig button for clients */}
+                {user && user.role !== 'WORKER' && (
+                  <button
+                    onClick={() => setShowPostGig(true)}
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Post Gig</span>
+                  </button>
+                )}
                 <button
                   onClick={() => navigate(AppView.MARKETPLACE)}
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.MARKETPLACE ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
                 >
-                  <Search className="w-5 h-5" />
-                  <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Find Work</span>
+                  {user?.role === 'WORKER' ? <Briefcase className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+                  <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">
+                    {user?.role === 'WORKER' ? 'Find Work' : 'Hire Pro'}
+                  </span>
                 </button>
                 <button
                   onClick={() => navigate(AppView.SHOWCASE)}
