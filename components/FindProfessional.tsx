@@ -53,7 +53,8 @@ const FindProfessional: React.FC<FindProfessionalProps> = ({ user, addNotificati
         return matchesCategory && matchesSearch;
     });
 
-    const categories: string[] = ['all', ...Array.from(new Set(professionals.map(p => p.category)))];
+    const uniqueCategories = professionals.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i);
+    const categories: string[] = ['all', ...uniqueCategories];
 
     const handleHire = (professional: ProfessionalProfile) => {
         addNotification(

@@ -81,7 +81,8 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
         return matchesCategory && matchesSearch;
     });
 
-    const categories: string[] = ['all', ...Array.from(new Set(gigs.map(g => g.category)))];
+    const uniqueCategories = gigs.map(g => g.category).filter((v, i, a) => a.indexOf(v) === i);
+    const categories: string[] = ['all', ...uniqueCategories];
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
