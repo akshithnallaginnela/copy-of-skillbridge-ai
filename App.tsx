@@ -10,8 +10,9 @@ import WorkFeed from './components/WorkFeed';
 import NotificationSystem from './components/NotificationSystem';
 import Login from './components/Login';
 import UserProfile from './components/UserProfile';
+import NearbyProfessionals from './components/NearbyProfessionals';
 import { MOCK_WORKERS } from './constants';
-import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut } from 'lucide-react';
+import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.LANDING);
@@ -110,6 +111,8 @@ const App: React.FC = () => {
         return <MyGigs addNotification={addNotification} userRole={user?.role} />;
       case AppView.SHOWCASE:
         return <WorkFeed onSelectWorker={handleSelectWorkerById} />;
+      case AppView.FIND_NEARBY:
+        return <NearbyProfessionals />;
       case AppView.PROFILE:
         return user ? (
           <UserProfile
@@ -232,6 +235,13 @@ const App: React.FC = () => {
                 >
                   <LayoutGrid className="w-5 h-5" />
                   <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold text-center">Showcase</span>
+                </button>
+                <button
+                  onClick={() => navigate(AppView.FIND_NEARBY)}
+                  className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.FIND_NEARBY ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  <MapPin className="w-5 h-5" />
+                  <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold text-center">Nearby</span>
                 </button>
                 <button
                   onClick={() => navigate(AppView.MY_GIGS)}

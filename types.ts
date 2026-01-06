@@ -8,7 +8,8 @@ export enum AppView {
   MY_GIGS = 'MY_GIGS',
   SHOWCASE = 'SHOWCASE',
   LOGIN = 'LOGIN',
-  PROFILE = 'PROFILE'
+  PROFILE = 'PROFILE',
+  FIND_NEARBY = 'FIND_NEARBY'
 }
 
 export interface User {
