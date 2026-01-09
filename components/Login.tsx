@@ -31,9 +31,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, onBack }) => {
           onLogin(response.user);
         }
       } else {
-        // Login
+        // Login - first login to get the user
         const response = await authService.login(email, password);
         if (response.success && response.user) {
+          // Check if the user's role matches the selected role
+          if (response.user.role !== role) {
+            // Role mismatch - show helpful error
+            const expectedRoleName = role === 'WORKER' ? 'Professional' : 'Client';
+            const actualRoleName = response.user.role === 'WORKER' ? 'Professional' : 'Client';
+            setError(
+              `This account is registered as a ${actualRoleName}. ` +
+              `Please select "${response.user.role === 'WORKER' ? 'I want to Work' : 'I want to Hire'}" to login.`
+            );
+            // Logout the user since role doesn't match
+            authService.logout();
+            return;
+          }
           onLogin(response.user);
         }
       }

@@ -2,7 +2,7 @@
 // This file configures Firebase for real-time features
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, query, where, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, query, where, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 // Firebase configuration - Replace with your Firebase project credentials
@@ -77,10 +77,18 @@ export const createGig = async (gig: Omit<Gig, 'id' | 'createdAt'>): Promise<str
 
 export const getOpenGigs = async (): Promise<Gig[]> => {
     console.log('[Firebase] Fetching open gigs...');
-    const q = query(gigsCollection, where('status', '==', 'open'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    console.log('[Firebase] Fetched', snapshot.docs.length, 'open gigs');
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+    // Fetch all gigs and filter in-memory to avoid index requirement
+    const snapshot = await getDocs(gigsCollection);
+    const allGigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+    const openGigs = allGigs.filter(g => g.status === 'open');
+    // Sort in-memory by createdAt (newest first)
+    openGigs.sort((a, b) => {
+        const aTime = a.createdAt ? (a.createdAt as any).seconds || 0 : 0;
+        const bTime = b.createdAt ? (b.createdAt as any).seconds || 0 : 0;
+        return bTime - aTime;
+    });
+    console.log('[Firebase] Fetched', openGigs.length, 'open gigs');
+    return openGigs;
 };
 
 export const acceptGig = async (gigId: string, professionalId: string, professionalName: string): Promise<void> => {
@@ -94,37 +102,42 @@ export const acceptGig = async (gigId: string, professionalId: string, professio
 };
 
 export const subscribeToGigs = (callback: (gigs: Gig[]) => void) => {
-    const q = query(gigsCollection, orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    // Simple query without orderBy to avoid index requirement
+    return onSnapshot(gigsCollection, (snapshot) => {
         const gigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+        // Sort in-memory by createdAt (newest first)
+        gigs.sort((a, b) => {
+            const aTime = a.createdAt ? (a.createdAt as any).seconds || 0 : 0;
+            const bTime = b.createdAt ? (b.createdAt as any).seconds || 0 : 0;
+            return bTime - aTime;
+        });
         callback(gigs);
     });
 };
 
 export const subscribeToOpenGigs = (callback: (gigs: Gig[]) => void, onError?: (error: Error) => void) => {
-    // Note: This query requires a composite index in Firestore
-    // Go to Firebase Console -> Firestore -> Indexes and create an index:
-    // Collection: gigs, Fields: status (Ascending), createdAt (Descending)
-    const q = query(gigsCollection, where('status', '==', 'open'), orderBy('createdAt', 'desc'));
+    // Simplified query - fetch ALL gigs and filter in-memory to avoid index requirement
     return onSnapshot(
-        q,
+        gigsCollection,
         (snapshot) => {
             console.log('[Firebase] Received gigs update:', snapshot.docs.length, 'documents');
-            const gigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
-            callback(gigs);
+            const allGigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+
+            // Filter for open gigs in-memory
+            const openGigs = allGigs.filter(g => g.status === 'open');
+
+            // Sort in-memory by createdAt (newest first)
+            openGigs.sort((a, b) => {
+                const aTime = a.createdAt ? (a.createdAt as any).seconds || 0 : 0;
+                const bTime = b.createdAt ? (b.createdAt as any).seconds || 0 : 0;
+                return bTime - aTime;
+            });
+
+            console.log('[Firebase] Open gigs:', openGigs.length);
+            callback(openGigs);
         },
         (error) => {
             console.error('[Firebase] Error in subscribeToOpenGigs:', error);
-            console.error('[Firebase] Error code:', error.code);
-            console.error('[Firebase] Error message:', error.message);
-
-            // Check if it's a missing index error
-            if (error.message.includes('index')) {
-                console.error('[Firebase] MISSING INDEX: Please create a composite index for the "gigs" collection.');
-                console.error('[Firebase] Fields: status (Ascending), createdAt (Descending)');
-                console.error('[Firebase] Or click the link in the error message above to create it automatically.');
-            }
-
             if (onError) {
                 onError(error);
             }
@@ -133,9 +146,16 @@ export const subscribeToOpenGigs = (callback: (gigs: Gig[]) => void, onError?: (
 };
 
 export const subscribeToMyGigs = (clientId: string, callback: (gigs: Gig[]) => void) => {
-    const q = query(gigsCollection, where('clientId', '==', clientId), orderBy('createdAt', 'desc'));
+    // Simple query without orderBy to avoid index requirement
+    const q = query(gigsCollection, where('clientId', '==', clientId));
     return onSnapshot(q, (snapshot) => {
         const gigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+        // Sort in-memory by createdAt (newest first)
+        gigs.sort((a, b) => {
+            const aTime = a.createdAt ? (a.createdAt as any).seconds || 0 : 0;
+            const bTime = b.createdAt ? (b.createdAt as any).seconds || 0 : 0;
+            return bTime - aTime;
+        });
         callback(gigs);
     });
 };
