@@ -25,22 +25,54 @@ const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
 };
 
 const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
+
     const [gigs, setGigs] = useState<Gig[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [acceptingGigId, setAcceptingGigId] = useState<string | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [hasGeneratedSamples, setHasGeneratedSamples] = useState(false);
+    const [firebaseError, setFirebaseError] = useState<string | null>(null);
 
     // Subscribe to real-time gig updates
     useEffect(() => {
         setIsLoading(true);
-        const unsubscribe = subscribeToOpenGigs((updatedGigs) => {
-            setGigs(updatedGigs);
-            setIsLoading(false);
-        });
+        setFirebaseError(null);
 
-        return () => unsubscribe();
+        console.log('[FindWork] Setting up real-time subscription...');
+
+        const unsubscribe = subscribeToOpenGigs(
+            (updatedGigs) => {
+                console.log('[FindWork] Received gigs:', updatedGigs.length);
+                setGigs(updatedGigs);
+                setIsLoading(false);
+                setFirebaseError(null);
+            },
+            (error: Error & { code?: string }) => {
+                console.error('[FindWork] Firebase error:', error);
+                setIsLoading(false);
+
+                // Provide helpful error messages
+                if (error.message?.includes('index')) {
+                    setFirebaseError(
+                        'Missing Firestore Index: Please check the browser console for a link to create the required index. ' +
+                        'This is required for real-time queries with multiple filters.'
+                    );
+                } else if (error.code === 'permission-denied') {
+                    setFirebaseError(
+                        'Permission Denied: Please check your Firestore security rules. ' +
+                        'Make sure the rules allow reading the "gigs" collection.'
+                    );
+                } else {
+                    setFirebaseError(`Firebase Error: ${error.message}`);
+                }
+            }
+        );
+
+        return () => {
+            console.log('[FindWork] Cleaning up subscription');
+            unsubscribe();
+        };
     }, []);
 
     // Generate sample gigs if none exist
@@ -96,10 +128,25 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
             </div>
 
             {/* Real-time indicator */}
-            <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 rounded-xl border border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-green-700">Real-time updates enabled</span>
-            </div>
+            {!firebaseError ? (
+                <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 rounded-xl border border-green-200">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-sm font-medium text-green-700">Real-time updates enabled</span>
+                </div>
+            ) : (
+                <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="text-sm font-bold text-red-800 mb-1">Firebase Configuration Required</h4>
+                            <p className="text-sm text-red-700 mb-2">{firebaseError}</p>
+                            <p className="text-xs text-red-600">
+                                Check the browser developer console (F12) for more details and a direct link to fix this issue.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Search & Filter */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">

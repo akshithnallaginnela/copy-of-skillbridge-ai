@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// SkillBridge Firebase Security Rules
+// Deploy these rules to Firebase Console -> Firestore Database -> Rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Gigs collection - for posting and finding work
+    match /gigs/{gigId} {
+      // Anyone can read open gigs (for professionals to browse)
+      allow read: if true;
+      
+      // Only authenticated users can create gigs
+      allow create: if isAuthenticated();
+      
+      // Only the client who created the gig can update/delete it
+      // OR a professional can accept it (update status and acceptedBy fields)
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && resource.data.clientId == request.auth.uid;
+    }
+    
+    // Users collection - for user profiles
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated();
+      
+      // Users can only write to their own profile
+      allow write: if isOwner(userId);
+    }
+    
+    // Professionals collection - for professional profiles
+    match /professionals/{professionalId} {
+      // Anyone can read professional profiles (for clients to browse)
+      allow read: if true;
+      
+      // Only authenticated users can create/update their professional profile
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

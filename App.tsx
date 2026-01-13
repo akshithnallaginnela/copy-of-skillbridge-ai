@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AppView, WorkerProfile, Notification, User as UserType } from './types';
 import Landing from './components/Landing';
 import Marketplace from './components/Marketplace';
@@ -14,8 +13,17 @@ import NearbyProfessionals from './components/NearbyProfessionals';
 import FindWork from './components/FindWork';
 import FindProfessional from './components/FindProfessional';
 import PostGig from './components/PostGig';
+import AccountSettings from './components/AccountSettings';
+import WorkGallery from './components/WorkGallery';
+import HowItWorks from './components/HowItWorks';
+import SafetyPage from './components/SafetyPage';
+import PricingPage from './components/PricingPage';
+import HelpCenter from './components/HelpCenter';
+import ContactUs from './components/ContactUs';
+import TermsOfService from './components/TermsOfService';
+import { authService } from './services/authService';
 import { MOCK_WORKERS } from './constants';
-import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin, Users, Plus } from 'lucide-react';
+import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin, Users, Plus, Camera } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.LANDING);
@@ -23,6 +31,18 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPostGig, setShowPostGig] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Restore user session from localStorage on mount
+  useEffect(() => {
+    const storedUser = authService.getStoredUser();
+    if (storedUser && authService.isAuthenticated()) {
+      setUser(storedUser);
+      // If user is logged in, show dashboard instead of landing
+      setCurrentView(AppView.MARKETPLACE);
+    }
+    setIsInitialized(true);
+  }, []);
 
   const addNotification = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -115,16 +135,35 @@ const App: React.FC = () => {
         return <MyGigs addNotification={addNotification} userRole={user?.role} />;
       case AppView.SHOWCASE:
         return <WorkFeed onSelectWorker={handleSelectWorkerById} />;
+      case AppView.FIND_WORK:
+        return <FindWork user={user} addNotification={addNotification} />;
       case AppView.FIND_NEARBY:
         return <NearbyProfessionals />;
+      case AppView.GALLERY:
+        return user ? (
+          <WorkGallery user={user} addNotification={addNotification} />
+        ) : <Login onLogin={handleLogin} onBack={() => navigate(AppView.LANDING)} />;
       case AppView.PROFILE:
         return user ? (
-          <UserProfile
+          <AccountSettings
             user={user}
+            onLogout={handleLogout}
             onUpdateUser={(updatedUser) => setUser(updatedUser)}
             addNotification={addNotification}
           />
         ) : <Login onLogin={handleLogin} onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.HOW_IT_WORKS:
+        return <HowItWorks onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.SAFETY:
+        return <SafetyPage onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.PRICING:
+        return <PricingPage onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.HELP_CENTER:
+        return <HelpCenter onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.CONTACT_US:
+        return <ContactUs onBack={() => navigate(AppView.LANDING)} />;
+      case AppView.TERMS:
+        return <TermsOfService onBack={() => navigate(AppView.LANDING)} />;
       case AppView.DASHBOARD:
         return (
           <div className="max-w-4xl mx-auto p-8">
@@ -209,6 +248,18 @@ const App: React.FC = () => {
     }
   };
 
+  // Show loading spinner while restoring session
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading SkillBridge...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
@@ -226,13 +277,32 @@ const App: React.FC = () => {
                 SkillBridge
               </div>
               <div className="flex flex-1 justify-around sm:justify-end gap-1 sm:gap-2 md:gap-4">
-                <button
-                  onClick={() => navigate(AppView.MARKETPLACE)}
-                  className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.MARKETPLACE ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  <Search className="w-5 h-5" />
-                  <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Find Work</span>
-                </button>
+                {user?.role === 'WORKER' ? (
+                  <>
+                    <button
+                      onClick={() => navigate(AppView.FIND_WORK)}
+                      className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.FIND_WORK ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                    >
+                      <Search className="w-5 h-5" />
+                      <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Find Work</span>
+                    </button>
+                    <button
+                      onClick={() => navigate(AppView.GALLERY)}
+                      className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.GALLERY ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                    >
+                      <Camera className="w-5 h-5" />
+                      <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Gallery</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => user ? setShowPostGig(true) : navigate(AppView.LOGIN)}
+                    className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all text-green-600 hover:text-green-700 hover:bg-green-50`}
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Post Gig</span>
+                  </button>
+                )}
                 <button
                   onClick={() => navigate(AppView.SHOWCASE)}
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.SHOWCASE ? 'text-blue-600 sm:bg-blue-50 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
@@ -286,21 +356,30 @@ const App: React.FC = () => {
             <div>
               <h4 className="font-bold text-white text-xl mb-6">Platform</h4>
               <ul className="space-y-4">
-                <li><a href="#" className="hover:text-blue-400 transition-colors">How it Works</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Safety</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Pricing</a></li>
+                <li><button onClick={() => navigate(AppView.HOW_IT_WORKS)} className="hover:text-blue-400 transition-colors">How it Works</button></li>
+                <li><button onClick={() => navigate(AppView.SAFETY)} className="hover:text-blue-400 transition-colors">Safety</button></li>
+                <li><button onClick={() => navigate(AppView.PRICING)} className="hover:text-blue-400 transition-colors">Pricing</button></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-white text-xl mb-6">Support</h4>
               <ul className="space-y-4">
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Terms of Service</a></li>
+                <li><button onClick={() => navigate(AppView.HELP_CENTER)} className="hover:text-blue-400 transition-colors">Help Center</button></li>
+                <li><button onClick={() => navigate(AppView.CONTACT_US)} className="hover:text-blue-400 transition-colors">Contact Us</button></li>
+                <li><button onClick={() => navigate(AppView.TERMS)} className="hover:text-blue-400 transition-colors">Terms of Service</button></li>
               </ul>
             </div>
           </div>
         </footer>
+      )}
+
+      {/* Post Gig Modal */}
+      {showPostGig && (
+        <PostGig
+          user={user}
+          onClose={() => setShowPostGig(false)}
+          addNotification={addNotification}
+        />
       )}
     </div>
   );
