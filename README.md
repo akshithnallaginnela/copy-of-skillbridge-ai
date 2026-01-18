@@ -14,8 +14,6 @@
 
 **Connect skilled workers with customers. Showcase portfolios. Build trust with AI.**
 
-[🚀 Live Demo](https://ai.studio/apps/drive/1wY3vakhPvyafPeMr0slxfwXOoWeS0PhW) • [📖 Documentation](#-documentation) • [🛠️ Installation](#-quick-start)
-
 <br/>
 
 <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="SkillBridge Banner" width="100%" />
