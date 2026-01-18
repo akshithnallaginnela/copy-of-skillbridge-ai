@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import {
-    Mail, Phone, MapPin, Send, MessageCircle,
+    Mail, MapPin, Send,
     Clock, CheckCircle, Linkedin, Twitter, Instagram
 } from 'lucide-react';
 
@@ -19,15 +19,37 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        // Simulate form submission
-        setTimeout(() => {
+        try {
+            // Submit to Formspree
+            const response = await fetch('https://formspree.io/f/YOUR_FORMSPREE_ID', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    email: formData.email,
+                    subject: formData.subject,
+                    message: formData.message
+                })
+            });
+
+            if (response.ok) {
+                setIsSubmitted(true);
+            } else {
+                throw new Error('Form submission failed');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            alert('Failed to send message. Please try again.');
+        } finally {
             setIsSubmitting(false);
-            setIsSubmitted(true);
-        }, 1500);
+        }
     };
 
     if (isSubmitted) {
@@ -76,25 +98,12 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100">
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 flex-shrink-0">
-                                    <Phone className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-900 mb-1">Phone</h3>
-                                    <p className="text-slate-600">+91 98765 43210</p>
-                                    <p className="text-sm text-slate-500 mt-1">Mon-Sat, 9 AM - 6 PM</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-100">
-                            <div className="flex items-start gap-4">
                                 <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 flex-shrink-0">
                                     <Mail className="w-6 h-6" />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900 mb-1">Email</h3>
-                                    <p className="text-slate-600">support@skillbridge.com</p>
+                                    <p className="text-slate-600">akshithnallaginnela28@gmail.com</p>
                                     <p className="text-sm text-slate-500 mt-1">Response within 24 hours</p>
                                 </div>
                             </div>
@@ -221,8 +230,8 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
                                     type="submit"
                                     disabled={isSubmitting}
                                     className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-all ${isSubmitting
-                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
                                         }`}
                                 >
                                     {isSubmitting ? (
