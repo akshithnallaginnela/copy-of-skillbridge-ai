@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const getAI = () => new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
 /**
  * Converts unstructured voice/text input from a worker into a structured professional profile.
@@ -21,7 +21,7 @@ export async function generateProfileFromVoice(input: string) {
           specialty: { type: Type.STRING },
           bio: { type: Type.STRING },
           experience: { type: Type.STRING },
-          skills: { 
+          skills: {
             type: Type.ARRAY,
             items: { type: Type.STRING }
           },

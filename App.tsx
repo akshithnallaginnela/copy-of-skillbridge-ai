@@ -14,6 +14,7 @@ import FindWork from './components/FindWork';
 import FindProfessional from './components/FindProfessional';
 import PostGig from './components/PostGig';
 import AccountSettings from './components/AccountSettings';
+import WorkerDashboard from './components/WorkerDashboard';
 import WorkGallery from './components/WorkGallery';
 import HowItWorks from './components/HowItWorks';
 import SafetyPage from './components/SafetyPage';
@@ -23,7 +24,7 @@ import ContactUs from './components/ContactUs';
 import TermsOfService from './components/TermsOfService';
 import { authService } from './services/authService';
 import { MOCK_WORKERS } from './constants';
-import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin, Users, Plus, Camera } from 'lucide-react';
+import { Layout, Briefcase, User, Search, Home, ClipboardList, LayoutGrid, LogOut, MapPin, Users, Plus, Camera, Mic } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.LANDING);
@@ -54,6 +55,9 @@ const App: React.FC = () => {
   }, []);
 
   const handleProfileCreated = (profile: any) => {
+    // Save the AI-generated profile to localStorage
+    localStorage.setItem('aiGeneratedProfile', JSON.stringify(profile));
+
     const newUser: UserType = {
       id: user?.id || 'u' + Math.random().toString(36).substr(2, 5),
       name: profile.name,
@@ -145,12 +149,22 @@ const App: React.FC = () => {
         ) : <Login onLogin={handleLogin} onBack={() => navigate(AppView.LANDING)} />;
       case AppView.PROFILE:
         return user ? (
-          <AccountSettings
-            user={user}
-            onLogout={handleLogout}
-            onUpdateUser={(updatedUser) => setUser(updatedUser)}
-            addNotification={addNotification}
-          />
+          user.role === 'WORKER' ? (
+            <WorkerDashboard
+              user={user}
+              onLogout={handleLogout}
+              onUpdateUser={(updatedUser) => setUser(updatedUser)}
+              onNavigateToProfileCreator={() => navigate(AppView.PROFILE_CREATOR)}
+              addNotification={addNotification}
+            />
+          ) : (
+            <AccountSettings
+              user={user}
+              onLogout={handleLogout}
+              onUpdateUser={(updatedUser) => setUser(updatedUser)}
+              addNotification={addNotification}
+            />
+          )
         ) : <Login onLogin={handleLogin} onBack={() => navigate(AppView.LANDING)} />;
       case AppView.HOW_IT_WORKS:
         return <HowItWorks onBack={() => navigate(AppView.LANDING)} />;
@@ -165,7 +179,17 @@ const App: React.FC = () => {
       case AppView.TERMS:
         return <TermsOfService onBack={() => navigate(AppView.LANDING)} />;
       case AppView.DASHBOARD:
-        return (
+        if (!user) return <Login onLogin={handleLogin} onBack={() => navigate(AppView.LANDING)} />;
+
+        return user.role === 'WORKER' ? (
+          <WorkerDashboard
+            user={user}
+            onLogout={handleLogout}
+            onUpdateUser={(updatedUser) => setUser(updatedUser)}
+            onNavigateToProfileCreator={() => navigate(AppView.PROFILE_CREATOR)}
+            addNotification={addNotification}
+          />
+        ) : (
           <div className="max-w-4xl mx-auto p-8">
             <div className="bg-white rounded-[40px] p-10 shadow-2xl border border-slate-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8">
@@ -178,50 +202,25 @@ const App: React.FC = () => {
                 <img src={user?.avatar} className="w-24 h-24 rounded-3xl object-cover ring-4 ring-blue-50" alt="" />
                 <div>
                   <h2 className="text-4xl font-black text-slate-900 tracking-tight">Namaste, {user?.name}!</h2>
-                  <p className="text-slate-500 font-medium">
-                    {user?.role === 'WORKER'
-                      ? "Your profile is performing 20% better this week."
-                      : "Find the best talent for your next project."}
-                  </p>
+                  <p className="text-slate-500 font-medium">Find the best talent for your next project.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {user?.role === 'WORKER' ? (
-                  <>
-                    <div className="p-8 bg-blue-50 rounded-3xl border border-blue-100 cursor-pointer hover:shadow-lg hover:bg-blue-100 transition-all group" onClick={() => navigate(AppView.MY_GIGS)}>
-                      <div className="w-12 h-12 bg-white text-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                        <ClipboardList className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-xl font-bold text-blue-900 mb-2">Active Inquiries</h3>
-                      <p className="text-blue-700/70">You have 4 leads waiting for response.</p>
-                    </div>
-                    <div className="p-8 bg-green-50 rounded-3xl border border-green-100 group transition-all">
-                      <div className="w-12 h-12 bg-white text-green-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                        <Home className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-xl font-bold text-green-900 mb-2">Wallet Balance</h3>
-                      <p className="text-green-700/70">Available: ₹12,450.00</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-8 bg-emerald-50 rounded-3xl border border-emerald-100 cursor-pointer hover:shadow-lg hover:bg-emerald-100 transition-all group" onClick={() => navigate(AppView.MARKETPLACE)}>
-                      <div className="w-12 h-12 bg-white text-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                        <Search className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-xl font-bold text-emerald-900 mb-2">Find Experts</h3>
-                      <p className="text-emerald-700/70">Browse verified professionals in your area.</p>
-                    </div>
-                    <div className="p-8 bg-blue-50 rounded-3xl border border-blue-100 cursor-pointer hover:shadow-lg hover:bg-blue-100 transition-all group" onClick={() => navigate(AppView.MY_GIGS)}>
-                      <div className="w-12 h-12 bg-white text-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                        <ClipboardList className="w-6 h-6" />
-                      </div>
-                      <h3 className="text-xl font-bold text-blue-900 mb-2">My Jobs</h3>
-                      <p className="text-blue-700/70">Track progress of your hired projects.</p>
-                    </div>
-                  </>
-                )}
+                <div className="p-8 bg-emerald-50 rounded-3xl border border-emerald-100 cursor-pointer hover:shadow-lg hover:bg-emerald-100 transition-all group" onClick={() => navigate(AppView.MARKETPLACE)}>
+                  <div className="w-12 h-12 bg-white text-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-emerald-900 mb-2">Find Experts</h3>
+                  <p className="text-emerald-700/70">Browse verified professionals in your area.</p>
+                </div>
+                <div className="p-8 bg-blue-50 rounded-3xl border border-blue-100 cursor-pointer hover:shadow-lg hover:bg-blue-100 transition-all group" onClick={() => navigate(AppView.MY_GIGS)}>
+                  <div className="w-12 h-12 bg-white text-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    <ClipboardList className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-blue-900 mb-2">My Jobs</h3>
+                  <p className="text-blue-700/70">Track progress of your hired projects.</p>
+                </div>
               </div>
 
               <div className="mt-10 pt-10 border-t border-slate-50 flex flex-col sm:flex-row gap-4">
@@ -231,14 +230,6 @@ const App: React.FC = () => {
                 >
                   Explore Marketplace
                 </button>
-                {user?.role === 'WORKER' && (
-                  <button
-                    onClick={() => navigate(AppView.SHOWCASE)}
-                    className="flex-1 py-5 bg-white text-slate-900 border-2 border-slate-100 font-black text-lg rounded-[24px] hover:border-blue-400 hover:bg-blue-50 transition-all"
-                  >
-                    Post New Work
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -292,6 +283,13 @@ const App: React.FC = () => {
                     >
                       <Camera className="w-5 h-5" />
                       <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">Gallery</span>
+                    </button>
+                    <button
+                      onClick={() => navigate(AppView.PROFILE_CREATOR)}
+                      className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-4 py-2 rounded-2xl transition-all ${currentView === AppView.PROFILE_CREATOR ? 'text-purple-600 sm:bg-purple-50 font-bold' : 'text-purple-500 hover:text-purple-700 hover:bg-purple-50'}`}
+                    >
+                      <Mic className="w-5 h-5" />
+                      <span className="text-[10px] sm:text-sm uppercase tracking-wider font-bold">AI Profile</span>
                     </button>
                   </>
                 ) : (
