@@ -34,14 +34,14 @@ const gigsRoutes = require('./routes/gigs');
 const locationRoutes = require('./routes/location');
 const placesRoutes = require('./routes/places');
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/gigs', gigsRoutes);
-app.use('/api/location', locationRoutes);
-app.use('/api/places', placesRoutes);
+// API Routes (no /api prefix needed - already in /api/index.js)
+app.use('/auth', authRoutes);
+app.use('/gigs', gigsRoutes);
+app.use('/location', locationRoutes);
+app.use('/places', placesRoutes);
 
 // Health check route
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
         message: 'SkillBridge API is running on Vercel',
@@ -51,7 +51,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Root route
-app.get('/api', (req, res) => {
+app.get('/', (req, res) => {
     res.status(200).json({
         success: true,
         message: 'Welcome to SkillBridge API',
