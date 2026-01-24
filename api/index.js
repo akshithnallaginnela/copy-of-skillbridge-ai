@@ -13,6 +13,11 @@ app.use(express.urlencoded({ extended: true }));
 let dbConnectionPromise = null;
 
 app.use(async (req, res, next) => {
+    // Skip DB connection for health check
+    if (req.path === '/health' || req.path === '/') {
+        return next();
+    }
+
     try {
         if (!dbConnectionPromise) {
             dbConnectionPromise = connectDB();
@@ -23,7 +28,8 @@ app.use(async (req, res, next) => {
         console.error('Database connection error:', error);
         res.status(500).json({
             success: false,
-            message: 'Database connection failed'
+            message: 'Database connection failed',
+            error: error.message
         });
     }
 });
