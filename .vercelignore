@@ -1,0 +1,25 @@
+# Vercel will ignore these files during deployment
+
+# Old backend folder (we use /api now)
+backend/
+
+# Documentation
+*.md
+!README.md
+
+# Development files
+.vscode/
+.idea/
+*.log
+
+# Environment files (use Vercel env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Test files
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+__tests__/
