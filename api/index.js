@@ -1,87 +1,40 @@
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('./lib/db');
+// Minimal serverless function for debugging
+module.exports = async (req, res) => {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Connect to MongoDB (uses cached connection)
-let dbConnectionPromise = null;
-
-app.use(async (req, res, next) => {
-    // Skip DB connection for health check
-    if (req.path === '/health' || req.path === '/') {
-        return next();
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    try {
-        if (!dbConnectionPromise) {
-            dbConnectionPromise = connectDB();
-        }
-        await dbConnectionPromise;
-        next();
-    } catch (error) {
-        console.error('Database connection error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Database connection failed',
-            error: error.message
+    // Simple health check
+    if (req.url === '/api/health' || req.url === '/health') {
+        return res.status(200).json({
+            success: true,
+            message: 'SkillBridge API is running on Vercel (minimal mode)',
+            timestamp: new Date().toISOString(),
+            url: req.url,
+            method: req.method
         });
     }
-});
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const gigsRoutes = require('./routes/gigs');
-const locationRoutes = require('./routes/location');
-const placesRoutes = require('./routes/places');
+    // Root endpoint
+    if (req.url === '/api' || req.url === '/' || req.url === '/api/') {
+        return res.status(200).json({
+            success: true,
+            message: 'Welcome to SkillBridge API',
+            version: '1.0.0 - minimal',
+            availableEndpoints: ['/api/health']
+        });
+    }
 
-// API Routes (no /api prefix needed - already in /api/index.js)
-app.use('/auth', authRoutes);
-app.use('/gigs', gigsRoutes);
-app.use('/location', locationRoutes);
-app.use('/places', placesRoutes);
-
-// Health check route
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'SkillBridge API is running on Vercel',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'production'
-    });
-});
-
-// Root route
-app.get('/', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'Welcome to SkillBridge API',
-        version: '1.0.0'
-    });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
+    // 404 for everything else
+    return res.status(404).json({
         success: false,
-        message: 'Route not found'
+        message: 'Route not found',
+        requestedUrl: req.url
     });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-});
-
-// Export for Vercel (NO app.listen!)
-module.exports = app;
+};
