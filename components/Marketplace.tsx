@@ -84,7 +84,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onSelectWorker }) => {
       }
 
       const response = await fetch(
-        `http://localhost:5001/api/places/nearby?${params}`
+        `/api/places/nearby?${params}`
       );
       const data = await response.json();
 
@@ -186,8 +186,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onSelectWorker }) => {
                 key={r}
                 onClick={() => setRadius(r)}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${radius === r
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
               >
                 {r / 1000} km
@@ -207,8 +207,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onSelectWorker }) => {
               setSearchQuery('');
             }}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-medium whitespace-nowrap transition-all ${activeCategory === cat.id
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300'
               }`}
           >
             {cat.icon}
@@ -288,8 +288,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onSelectWorker }) => {
                   {/* Open/Closed Badge */}
                   {pro.isOpen !== null && (
                     <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-sm font-bold ${pro.isOpen
-                        ? 'bg-green-500 text-white'
-                        : 'bg-red-500 text-white'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-red-500 text-white'
                       }`}>
                       {pro.isOpen ? '🟢 Open' : '🔴 Closed'}
                     </div>

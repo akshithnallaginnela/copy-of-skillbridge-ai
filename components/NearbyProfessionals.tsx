@@ -103,7 +103,7 @@ const NearbyProfessionals: React.FC<NearbyProfessionalsProps> = ({ onSelectProfe
             }
 
             const response = await fetch(
-                `http://localhost:5001/api/places/nearby?${params}`
+                `/api/places/nearby?${params}`
             );
 
             const data = await response.json();
@@ -229,8 +229,8 @@ const NearbyProfessionals: React.FC<NearbyProfessionalsProps> = ({ onSelectProfe
                             setSearchQuery('');
                         }}
                         className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-semibold whitespace-nowrap transition-all ${selectedCategory === cat.id
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
-                                : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:bg-blue-50'
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:bg-blue-50'
                             }`}
                     >
                         {cat.icon}
@@ -286,8 +286,8 @@ const NearbyProfessionals: React.FC<NearbyProfessionalsProps> = ({ onSelectProfe
                                     {/* Open/Closed Badge */}
                                     {pro.isOpen !== null && (
                                         <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-sm font-bold ${pro.isOpen
-                                                ? 'bg-green-500 text-white'
-                                                : 'bg-red-500 text-white'
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-red-500 text-white'
                                             }`}>
                                             {pro.isOpen ? '🟢 Open' : '🔴 Closed'}
                                         </div>
