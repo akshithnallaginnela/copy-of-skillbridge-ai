@@ -4,7 +4,7 @@ import {
     Send, Briefcase, MapPin, DollarSign, FileText, X,
     Zap, Wrench, Paintbrush, Scissors, Car, Sparkles, Utensils
 } from 'lucide-react';
-import { createGig } from '../services/firebaseService';
+import { gigService } from '../services/authService';
 import { User as UserType } from '../types';
 
 interface PostGigProps {
@@ -46,27 +46,25 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
 
         setIsSubmitting(true);
         try {
-            await createGig({
+            // Use backend API instead of Firebase
+            await gigService.createGig({
                 title,
                 description,
                 category,
                 budget,
-                location,
-                clientId: user.id,
-                clientName: user.name,
-                clientEmail: user.email,
-                status: 'open'
+                location
             });
 
             addNotification(
                 'Gig Posted! 🎉',
-                'Your gig is now visible to professionals in real-time.',
+                'Your gig is now visible to professionals.',
                 'success'
             );
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error posting gig:', error);
-            addNotification('Error', 'Failed to post gig. Please try again.', 'warning');
+            const errorMessage = error.message || 'Failed to post gig. Please try again.';
+            addNotification('Error', errorMessage, 'warning');
         } finally {
             setIsSubmitting(false);
         }
@@ -123,8 +121,8 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
                                     type="button"
                                     onClick={() => setCategory(cat.id)}
                                     className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${category === cat.id
-                                            ? 'bg-blue-600 text-white shadow-lg'
-                                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
                                         }`}
                                 >
                                     {cat.icon}
@@ -190,8 +188,8 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
                         type="submit"
                         disabled={isSubmitting}
                         className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition-all ${isSubmitting
-                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
                             }`}
                     >
                         {isSubmitting ? (
