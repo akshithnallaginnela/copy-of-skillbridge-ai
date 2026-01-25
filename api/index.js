@@ -588,6 +588,46 @@ app.delete('/api/gigs/:id', protect, async (req, res) => {
     }
 });
 
+// Debug endpoint
+app.get('/api/debug', async (req, res) => {
+    try {
+        const hasMongoUri = !!process.env.MONGODB_URI;
+        const hasJwtSecret = !!process.env.JWT_SECRET;
+
+        let dbStatus = 'not connected';
+        let dbError = null;
+
+        try {
+            await connectDB();
+            dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'connecting';
+        } catch (error) {
+            dbStatus = 'error';
+            dbError = error.message;
+        }
+
+        res.status(200).json({
+            success: true,
+            environment: {
+                MONGODB_URI: hasMongoUri ? 'set' : 'missing',
+                JWT_SECRET: hasJwtSecret ? 'set' : 'missing',
+                JWT_EXPIRE: process.env.JWT_EXPIRE || 'not set',
+                NODE_ENV: process.env.NODE_ENV || 'not set'
+            },
+            database: {
+                status: dbStatus,
+                error: dbError
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Debug endpoint error',
+            error: error.message
+        });
+    }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.status(200).json({
