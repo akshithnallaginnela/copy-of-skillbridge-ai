@@ -139,29 +139,47 @@ const gigSchema = new mongoose.Schema({
 
 const Gig = mongoose.models.Gig || mongoose.model('Gig', gigSchema);
 
+
 // Auth Middleware
 const protect = async (req, res, next) => {
     let token;
 
+    // Debug logging
+    console.log('🔐 Auth check - Headers:', req.headers.authorization ? 'Present' : 'Missing');
+
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
+        console.log('✅ Token extracted, length:', token?.length);
     }
 
     if (!token) {
+        console.log('❌ No token found in request');
         return res.status(401).json({
             success: false,
-            message: 'Not authorized to access this route'
+            message: 'Not authorized to access this route - No token provided'
         });
     }
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('✅ Token verified for user:', decoded.id);
         req.user = await User.findById(decoded.id);
+
+        if (!req.user) {
+            console.log('❌ User not found for ID:', decoded.id);
+            return res.status(401).json({
+                success: false,
+                message: 'Not authorized - User not found'
+            });
+        }
+
+        console.log('✅ User authenticated:', req.user.email);
         next();
     } catch (error) {
+        console.log('❌ Token verification failed:', error.message);
         return res.status(401).json({
             success: false,
-            message: 'Not authorized to access this route'
+            message: 'Not authorized to access this route - Invalid token'
         });
     }
 };
