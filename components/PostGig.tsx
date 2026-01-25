@@ -63,7 +63,17 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
             onClose();
         } catch (error: any) {
             console.error('Error posting gig:', error);
-            const errorMessage = error.message || 'Failed to post gig. Please try again.';
+            // Extract the actual error message from the API response
+            let errorMessage = 'Failed to post gig. Please try again.';
+
+            if (error.message) {
+                errorMessage = error.message;
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+
             addNotification('Error', errorMessage, 'warning');
         } finally {
             setIsSubmitting(false);
