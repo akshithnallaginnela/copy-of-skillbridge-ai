@@ -107,7 +107,7 @@ const ProfessionalMap: React.FC<ProfessionalMapProps> = ({ apiKey, onSelectProfe
             }
 
             const response = await fetch(
-                `http://localhost:5001/api/location/nearby-professionals?${params}`,
+                `/api/location/nearby-professionals?${params}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`

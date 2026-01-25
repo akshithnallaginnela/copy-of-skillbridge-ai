@@ -113,7 +113,7 @@ const WorkFeed: React.FC<WorkFeedProps> = ({ onSelectWorker }) => {
       // Fetch from multiple categories
       for (const category of CATEGORIES_TO_FETCH) {
         const response = await fetch(
-          `http://localhost:5001/api/places/nearby?lat=${userLocation.lat}&lng=${userLocation.lng}&category=${category}&radius=15000`
+          `/api/places/nearby?lat=${userLocation.lat}&lng=${userLocation.lng}&category=${category}&radius=15000`
         );
         const data = await response.json();
         if (data.success && data.data) {
