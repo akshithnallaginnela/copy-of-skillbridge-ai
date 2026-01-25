@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
+import { Client } from '@googlemaps/google-maps-services-js';
 
 // MongoDB Connection with caching for Vercel
 let cached = global.mongoose;
@@ -588,6 +589,310 @@ app.delete('/api/gigs/:id', protect, async (req, res) => {
     }
 });
 
+// ============ GOOGLE MAPS PLACES API ROUTES ============
+
+// Initialize Google Maps client
+const mapsClient = new Client({});
+
+// Service category mappings
+const CATEGORY_MAPPINGS = {
+    'electrician': { type: 'electrician', keywords: ['electrician', 'electrical shop', 'electrical services'] },
+    'plumber': { type: 'plumber', keywords: ['plumber', 'plumbing services', 'plumbing shop'] },
+    'carpenter': { type: 'general_contractor', keywords: ['carpenter', 'carpentry', 'woodwork'] },
+    'painter': { type: 'painter', keywords: ['painter', 'painting services', 'house painter'] },
+    'beautician': { type: 'beauty_salon', keywords: ['beautician', 'beauty parlor', 'salon'] },
+    'mechanic': { type: 'car_repair', keywords: ['mechanic', 'auto repair', 'car service'] },
+    'ac_repair': { type: 'home_goods_store', keywords: ['ac repair', 'air conditioner service', 'hvac'] },
+    'cleaning': { type: 'home_goods_store', keywords: ['cleaning services', 'house cleaning', 'maid service'] },
+    'cook': { type: 'meal_delivery', keywords: ['cook', 'catering', 'home chef', 'tiffin service'] },
+    'gardener': { type: 'home_goods_store', keywords: ['gardener', 'landscaping', 'garden services'] }
+};
+
+// Helper function to get place details
+const getPlaceDetails = async (placeId, apiKey) => {
+    try {
+        const response = await mapsClient.placeDetails({
+            params: {
+                place_id: placeId,
+                fields: [
+                    'formatted_phone_number',
+                    'international_phone_number',
+                    'website',
+                    'opening_hours',
+                    'reviews',
+                    'formatted_address',
+                    'url'
+                ],
+                key: apiKey
+            }
+        });
+        return response.data.result || null;
+    } catch (error) {
+        console.warn('Error getting place details:', error.message);
+        return null;
+    }
+};
+
+// GET /api/places/nearby
+app.get('/api/places/nearby', async (req, res) => {
+    try {
+        const { lat, lng, category, radius = 5000, query } = req.query;
+
+        if (!lat || !lng) {
+            return res.status(400).json({
+                success: false,
+                message: 'Location coordinates (lat, lng) are required'
+            });
+        }
+
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({
+                success: false,
+                message: 'Google Maps API key not configured'
+            });
+        }
+
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        const searchRadius = parseInt(radius);
+
+        let professionals = [];
+
+        if (query) {
+            // Text-based search
+            const response = await mapsClient.textSearch({
+                params: {
+                    query: query,
+                    location: { lat: latitude, lng: longitude },
+                    radius: searchRadius,
+                    key: apiKey
+                }
+            });
+
+            if (response.data.status === 'OK' || response.data.status === 'ZERO_RESULTS') {
+                professionals = (response.data.results || []).slice(0, 15).map(place => ({
+                    id: place.place_id,
+                    source: 'google_places',
+                    name: place.name,
+                    category: category || 'Professional',
+                    rating: place.rating || 0,
+                    totalRatings: place.user_ratings_total || 0,
+                    isOpen: place.opening_hours?.open_now || null,
+                    location: {
+                        address: place.formatted_address,
+                        lat: place.geometry.location.lat,
+                        lng: place.geometry.location.lng
+                    },
+                    photo: place.photos?.[0]
+                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${apiKey}`
+                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(place.name)}&background=3B82F6&color=fff&size=200`,
+                    mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
+                }));
+            }
+        } else if (category) {
+            // Category-based search
+            const categoryConfig = CATEGORY_MAPPINGS[category.toLowerCase()] || {
+                type: 'point_of_interest',
+                keywords: [category]
+            };
+
+            const response = await mapsClient.placesNearby({
+                params: {
+                    location: { lat: latitude, lng: longitude },
+                    radius: searchRadius,
+                    type: categoryConfig.type,
+                    keyword: categoryConfig.keywords[0],
+                    key: apiKey
+                }
+            });
+
+            if (response.data.status === 'OK' || response.data.status === 'ZERO_RESULTS') {
+                const places = (response.data.results || []).slice(0, 20);
+                professionals = await Promise.all(
+                    places.map(async (place) => {
+                        const details = await getPlaceDetails(place.place_id, apiKey);
+                        return {
+                            id: place.place_id,
+                            source: 'google_places',
+                            name: place.name,
+                            category: category,
+                            rating: place.rating || 0,
+                            totalRatings: place.user_ratings_total || 0,
+                            priceLevel: place.price_level || null,
+                            isOpen: place.opening_hours?.open_now || null,
+                            location: {
+                                address: place.vicinity || details?.formatted_address || '',
+                                lat: place.geometry.location.lat,
+                                lng: place.geometry.location.lng
+                            },
+                            phone: details?.formatted_phone_number || details?.international_phone_number || null,
+                            website: details?.website || null,
+                            photo: place.photos?.[0]
+                                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${apiKey}`
+                                : `https://ui-avatars.com/api/?name=${encodeURIComponent(place.name)}&background=3B82F6&color=fff&size=200`,
+                            hours: details?.opening_hours?.weekday_text || [],
+                            reviews: (details?.reviews || []).slice(0, 3).map(review => ({
+                                author: review.author_name,
+                                rating: review.rating,
+                                text: review.text,
+                                time: review.relative_time_description
+                            })),
+                            mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+                            directionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${place.geometry.location.lat},${place.geometry.location.lng}&destination_place_id=${place.place_id}`
+                        };
+                    })
+                );
+            }
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Either category or query is required'
+            });
+        }
+
+        res.json({
+            success: true,
+            count: professionals.length,
+            radius: searchRadius,
+            location: { lat: latitude, lng: longitude },
+            data: professionals
+        });
+    } catch (error) {
+        console.error('Places search error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error searching for professionals',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/places/search
+app.get('/api/places/search', async (req, res) => {
+    try {
+        const { q, lat, lng, radius = 5000 } = req.query;
+
+        if (!q) {
+            return res.status(400).json({
+                success: false,
+                message: 'Search query (q) is required'
+            });
+        }
+
+        if (!lat || !lng) {
+            return res.status(400).json({
+                success: false,
+                message: 'Location coordinates (lat, lng) are required'
+            });
+        }
+
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({
+                success: false,
+                message: 'Google Maps API key not configured'
+            });
+        }
+
+        const response = await mapsClient.textSearch({
+            params: {
+                query: q,
+                location: { lat: parseFloat(lat), lng: parseFloat(lng) },
+                radius: parseInt(radius),
+                key: apiKey
+            }
+        });
+
+        const professionals = (response.data.results || []).slice(0, 15).map(place => ({
+            id: place.place_id,
+            source: 'google_places',
+            name: place.name,
+            rating: place.rating || 0,
+            totalRatings: place.user_ratings_total || 0,
+            isOpen: place.opening_hours?.open_now || null,
+            location: {
+                address: place.formatted_address,
+                lat: place.geometry.location.lat,
+                lng: place.geometry.location.lng
+            },
+            photo: place.photos?.[0]
+                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${apiKey}`
+                : `https://ui-avatars.com/api/?name=${encodeURIComponent(place.name)}&background=3B82F6&color=fff&size=200`,
+            mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
+        }));
+
+        res.json({
+            success: true,
+            query: q,
+            count: professionals.length,
+            data: professionals
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Search error',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/places/details/:placeId
+app.get('/api/places/details/:placeId', async (req, res) => {
+    try {
+        const { placeId } = req.params;
+
+        if (!placeId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Place ID is required'
+            });
+        }
+
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({
+                success: false,
+                message: 'Google Maps API key not configured'
+            });
+        }
+
+        const details = await getPlaceDetails(placeId, apiKey);
+
+        if (!details) {
+            return res.status(404).json({
+                success: false,
+                message: 'Place not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: details
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error getting place details',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/places/categories
+app.get('/api/places/categories', (req, res) => {
+    const categories = Object.keys(CATEGORY_MAPPINGS).map(key => ({
+        id: key,
+        name: key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '),
+        description: CATEGORY_MAPPINGS[key].keywords[0]
+    }));
+
+    res.json({
+        success: true,
+        data: categories
+    });
+});
+
 // Debug endpoint
 app.get('/api/debug', async (req, res) => {
     try {
@@ -611,7 +916,8 @@ app.get('/api/debug', async (req, res) => {
                 MONGODB_URI: hasMongoUri ? 'set' : 'missing',
                 JWT_SECRET: hasJwtSecret ? 'set' : 'missing',
                 JWT_EXPIRE: process.env.JWT_EXPIRE || 'not set',
-                NODE_ENV: process.env.NODE_ENV || 'not set'
+                NODE_ENV: process.env.NODE_ENV || 'not set',
+                GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY ? 'set' : 'missing'
             },
             database: {
                 status: dbStatus,
