@@ -14,13 +14,12 @@ interface PostGigProps {
 }
 
 const CATEGORIES = [
-    { id: 'electrician', name: 'Electrician', icon: <Zap className="w-5 h-5" /> },
-    { id: 'plumber', name: 'Plumber', icon: <Wrench className="w-5 h-5" /> },
-    { id: 'painter', name: 'Painter', icon: <Paintbrush className="w-5 h-5" /> },
-    { id: 'beautician', name: 'Beautician', icon: <Scissors className="w-5 h-5" /> },
-    { id: 'mechanic', name: 'Mechanic', icon: <Car className="w-5 h-5" /> },
-    { id: 'cleaning', name: 'Cleaning', icon: <Sparkles className="w-5 h-5" /> },
-    { id: 'cook', name: 'Cook', icon: <Utensils className="w-5 h-5" /> },
+    { id: 'Electrical', name: 'Electrical', icon: <Zap className="w-5 h-5" /> },
+    { id: 'Plumbing', name: 'Plumbing', icon: <Wrench className="w-5 h-5" /> },
+    { id: 'Carpentry', name: 'Carpentry', icon: <Paintbrush className="w-5 h-5" /> },
+    { id: 'Beauty', name: 'Beauty', icon: <Scissors className="w-5 h-5" /> },
+    { id: 'Cleaning', name: 'Cleaning', icon: <Sparkles className="w-5 h-5" /> },
+    { id: 'Other', name: 'Other', icon: <Utensils className="w-5 h-5" /> },
 ];
 
 const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => {
@@ -52,7 +51,8 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
                 description,
                 category,
                 budget,
-                location
+                location,
+                type: 'Posted'  // Required field: 'Posted' for customer-posted gigs
             });
 
             addNotification(
@@ -63,13 +63,16 @@ const PostGig: React.FC<PostGigProps> = ({ user, onClose, addNotification }) => 
             onClose();
         } catch (error: any) {
             console.error('Error posting gig:', error);
+            console.error('Error response:', error.response);
+            console.error('Error data:', error.response?.data);
+
             // Extract the actual error message from the API response
             let errorMessage = 'Failed to post gig. Please try again.';
 
-            if (error.message) {
-                errorMessage = error.message;
-            } else if (error.response?.data?.message) {
+            if (error.response?.data?.message) {
                 errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
             } else if (typeof error === 'string') {
                 errorMessage = error;
             }

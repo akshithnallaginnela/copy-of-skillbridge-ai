@@ -1,44 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Briefcase, Calendar, MapPin, Clock, ArrowRight, PlusCircle, X, Sparkles, Loader2, Send, CheckCircle2 } from 'lucide-react';
 import { Gig } from '../types';
 import { refineGig } from '../services/geminiService';
-
-const MOCK_GIGS: Gig[] = [
-  {
-    id: 'g1',
-    title: 'Kitchen Sink Leakage Repair',
-    description: 'The main pipe under the sink is leaking heavily. Need urgent fix.',
-    location: 'Indiranagar, Bangalore',
-    budget: '₹800',
-    category: 'Plumbing',
-    status: 'Accepted',
-    type: 'Applied',
-    date: 'Oct 12, 2023'
-  },
-  {
-    id: 'g2',
-    title: 'Full House Deep Cleaning',
-    description: '3 BHK apartment needs deep cleaning before housewarming.',
-    location: 'HSR Layout, Bangalore',
-    budget: '₹4,500',
-    category: 'Cleaning',
-    status: 'Pending',
-    type: 'Applied',
-    date: 'Oct 15, 2023'
-  },
-  {
-    id: 'g3',
-    title: 'Garden Lights Installation',
-    description: 'Need to install 10 decorative LED lights in the backyard.',
-    location: 'Whitefield, Bangalore',
-    budget: '₹2,000',
-    category: 'Electrical',
-    status: 'Open',
-    type: 'Posted',
-    date: 'Oct 18, 2023'
-  }
-];
+import axios from 'axios';
 
 interface MyGigsProps {
   addNotification: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
@@ -46,7 +11,8 @@ interface MyGigsProps {
 }
 
 const MyGigs: React.FC<MyGigsProps> = ({ addNotification, userRole = 'CUSTOMER' }) => {
-  const [gigs, setGigs] = useState<Gig[]>(MOCK_GIGS);
+  const [gigs, setGigs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [rawInput, setRawInput] = useState('');
@@ -58,6 +24,36 @@ const MyGigs: React.FC<MyGigsProps> = ({ addNotification, userRole = 'CUSTOMER' 
     budget: '',
     location: 'My Current Location'
   });
+
+  // Fetch user's gigs from backend
+  useEffect(() => {
+    fetchGigs();
+  }, [userRole]);
+
+  const fetchGigs = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+
+      // Use different endpoints based on user role
+      const endpoint = userRole === 'WORKER' ? '/api/gigs/applied' : '/api/gigs';
+
+      const response = await axios.get(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        setGigs(response.data.gigs || []);
+      }
+    } catch (error: any) {
+      console.error('Error fetching gigs:', error);
+      addNotification('Error', 'Failed to load your gigs', 'warning');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRefine = async () => {
     if (!rawInput.trim()) return;
@@ -98,18 +94,37 @@ const MyGigs: React.FC<MyGigsProps> = ({ addNotification, userRole = 'CUSTOMER' 
     addNotification("Job Posted", `"${gigToAdd.title}" is now visible to professionals near you.`, "success");
   };
 
-  const handleUpdateStatus = (id: string, newStatus: 'Accepted' | 'Completed') => {
-    setGigs(prev => prev.map(g => g.id === id ? { ...g, status: newStatus } : g));
-    const gig = gigs.find(g => g.id === id);
-    if (newStatus === 'Accepted') {
-      addNotification("Gig Update", `Application for "${gig?.title}" has been accepted!`, "success");
+  const handleUpdateStatus = async (id: string, newStatus: 'Accepted' | 'Completed') => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `/api/gigs/${id}`,
+        { status: newStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Update local state
+        setGigs(prev => prev.map(g => (g._id === id || g.id === id) ? { ...g, status: newStatus } : g));
+
+        if (newStatus === 'Completed') {
+          addNotification("Work Completed! 🎉", `"${response.data.gig.title}" has been marked as completed.`, "success");
+        } else if (newStatus === 'Accepted') {
+          addNotification("Gig Update", `Application has been accepted!`, "success");
+        }
+
+        // Refresh gigs list
+        await fetchGigs();
+      }
+    } catch (error: any) {
+      console.error('Error updating gig status:', error);
+      addNotification('Error', error.response?.data?.message || 'Failed to update gig status', 'warning');
     }
   };
-
-  // Filter gigs based on user role
-  const filteredGigs = gigs.filter(gig =>
-    userRole === 'WORKER' ? gig.type === 'Applied' : gig.type === 'Posted'
-  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -234,77 +249,129 @@ const MyGigs: React.FC<MyGigsProps> = ({ addNotification, userRole = 'CUSTOMER' 
         <p className={`text-sm font-semibold ${userRole === 'WORKER' ? 'text-blue-700' : 'text-emerald-700'
           }`}>
           {userRole === 'WORKER'
-            ? `📋 You have ${filteredGigs.length} job application${filteredGigs.length !== 1 ? 's' : ''} to track`
-            : `💼 You have ${filteredGigs.length} active job posting${filteredGigs.length !== 1 ? 's' : ''}`}
+            ? `📋 You have ${gigs.length} job application${gigs.length !== 1 ? 's' : ''} to track`
+            : `💼 You have ${gigs.length} active job posting${gigs.length !== 1 ? 's' : ''}`}
         </p>
       </div>
 
-      <div className="space-y-4">
-        {filteredGigs.map((gig) => (
-          <div key={gig.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm group">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                  <Briefcase className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600">{gig.title}</h3>
-                  <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
-                    <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {gig.date}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {gig.location}</span>
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600 font-medium">Loading your gigs...</p>
+          </div>
+        </div>
+      ) : gigs.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-3xl border border-slate-100">
+          <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-slate-700 mb-2">
+            {userRole === 'WORKER' ? 'No applications yet' : 'No posted gigs yet'}
+          </h3>
+          <p className="text-slate-500">
+            {userRole === 'WORKER'
+              ? 'Start applying for gigs in the "Find Work" section!'
+              : 'Post your first gig to get started!'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {gigs.map((gig) => (
+            <div key={gig._id || gig.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm group">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                    <Briefcase className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600">{gig.title}</h3>
+                    <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {gig.createdAt ? new Date(gig.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently'}
+                      </span>
+                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {gig.location}</span>
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(gig.status)}`}>
+                    {gig.status}
+                  </span>
+                  <span className="text-xl font-black text-slate-900">{gig.budget}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-4 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(gig.status)}`}>
-                  {gig.status}
-                </span>
-                <span className="text-xl font-black text-slate-900">{gig.budget}</span>
+
+              <p className="text-slate-600 mb-6">{gig.description}</p>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Status Updated recently</span>
+                </div>
+
+                {userRole === 'WORKER' ? (
+                  // Worker view: Show application status actions
+                  <>
+                    {gig.status === 'Pending' && (
+                      <span className="text-sm text-amber-600 font-semibold">
+                        ⏳ Waiting for client response...
+                      </span>
+                    )}
+                    {gig.status === 'Accepted' && (
+                      <div className="flex items-center gap-2 text-blue-600 font-bold">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Work in Progress
+                      </div>
+                    )}
+                    {gig.status === 'Completed' && (
+                      <div className="flex items-center gap-2 text-green-600 font-bold">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Completed! 🎉
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  // Customer view: Show job management actions
+                  <>
+                    {gig.status === 'Open' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-500 font-medium">
+                          Waiting for applications...
+                        </span>
+                      </div>
+                    )}
+                    {gig.status === 'Pending' && (
+                      <button
+                        onClick={() => handleUpdateStatus(gig._id || gig.id, 'Completed')}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-md"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        Mark as Completed
+                      </button>
+                    )}
+                    {gig.status === 'Accepted' && (
+                      <button
+                        onClick={() => handleUpdateStatus(gig._id || gig.id, 'Completed')}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-md"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        Mark as Completed
+                      </button>
+                    )}
+                    {gig.status === 'Completed' && (
+                      <div className="flex items-center gap-2 text-green-600 font-bold">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Work Completed ✓
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-
-            <p className="text-slate-600 mb-6">{gig.description}</p>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Clock className="w-4 h-4" />
-                <span className="text-xs font-semibold uppercase tracking-wider">Status Updated recently</span>
-              </div>
-
-              {userRole === 'WORKER' ? (
-                // Worker view: Show application status actions
-                <>
-                  {gig.status === 'Pending' && (
-                    <span className="text-sm text-amber-600 font-semibold">
-                      ⏳ Waiting for client response...
-                    </span>
-                  )}
-                  {gig.status === 'Accepted' && (
-                    <button className="flex items-center gap-2 text-blue-600 font-bold hover:gap-3 transition-all">
-                      View Job Details <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-                </>
-              ) : (
-                // Customer view: Show job management actions
-                <>
-                  {gig.status === 'Open' && (
-                    <button className="flex items-center gap-2 text-blue-600 font-bold hover:gap-3 transition-all">
-                      View Applicants (3) <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-                  {gig.status === 'Accepted' && (
-                    <button className="flex items-center gap-2 text-green-600 font-bold hover:gap-3 transition-all">
-                      <CheckCircle2 className="w-5 h-5" />
-                      Worker Hired
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -4,13 +4,22 @@ import {
     Briefcase, MapPin, DollarSign, Clock, User, CheckCircle,
     AlertCircle, Sparkles, Filter, Search, Zap, Wrench, Paintbrush
 } from 'lucide-react';
-import {
-    Gig,
-    subscribeToOpenGigs,
-    acceptGig,
-    generateSampleGigs
-} from '../services/firebaseService';
 import { User as UserType } from '../types';
+import axios from 'axios';
+
+interface Gig {
+    id?: string;
+    _id?: string;
+    userId: string | { _id: string; name: string; email: string };
+    title: string;
+    description: string;
+    category: string;
+    budget: string;
+    location: string;
+    status: string;
+    type: string;
+    createdAt?: any;
+}
 
 interface FindWorkProps {
     user: UserType | null;
@@ -18,9 +27,12 @@ interface FindWorkProps {
 }
 
 const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
-    electrician: <Zap className="w-5 h-5" />,
-    plumber: <Wrench className="w-5 h-5" />,
-    painter: <Paintbrush className="w-5 h-5" />,
+    Electrical: <Zap className="w-5 h-5" />,
+    Plumbing: <Wrench className="w-5 h-5" />,
+    Carpentry: <Paintbrush className="w-5 h-5" />,
+    Beauty: <Sparkles className="w-5 h-5" />,
+    Cleaning: <Sparkles className="w-5 h-5" />,
+    Other: <Briefcase className="w-5 h-5" />,
     default: <Briefcase className="w-5 h-5" />
 };
 
@@ -31,74 +43,72 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
     const [acceptingGigId, setAcceptingGigId] = useState<string | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [hasGeneratedSamples, setHasGeneratedSamples] = useState(false);
-    const [firebaseError, setFirebaseError] = useState<string | null>(null);
+    const [apiError, setApiError] = useState<string | null>(null);
 
-    // Subscribe to real-time gig updates
-    useEffect(() => {
-        setIsLoading(true);
-        setFirebaseError(null);
+    // Fetch all open gigs from backend
+    const fetchGigs = async () => {
+        try {
+            setApiError(null);
+            const response = await axios.get('/api/gigs/all');
+            console.log('[FindWork] Fetched gigs:', response.data);
 
-        console.log('[FindWork] Setting up real-time subscription...');
-
-        const unsubscribe = subscribeToOpenGigs(
-            (updatedGigs) => {
-                console.log('[FindWork] Received gigs:', updatedGigs.length);
-                setGigs(updatedGigs);
-                setIsLoading(false);
-                setFirebaseError(null);
-            },
-            (error: Error & { code?: string }) => {
-                console.error('[FindWork] Firebase error:', error);
-                setIsLoading(false);
-
-                // Provide helpful error messages
-                if (error.message?.includes('index')) {
-                    setFirebaseError(
-                        'Missing Firestore Index: Please check the browser console for a link to create the required index. ' +
-                        'This is required for real-time queries with multiple filters.'
-                    );
-                } else if (error.code === 'permission-denied') {
-                    setFirebaseError(
-                        'Permission Denied: Please check your Firestore security rules. ' +
-                        'Make sure the rules allow reading the "gigs" collection.'
-                    );
-                } else {
-                    setFirebaseError(`Firebase Error: ${error.message}`);
-                }
+            if (response.data.success) {
+                setGigs(response.data.gigs || []);
             }
-        );
+            setIsLoading(false);
+        } catch (error: any) {
+            console.error('[FindWork] Error fetching gigs:', error);
+            setApiError(error.response?.data?.message || 'Failed to load gigs');
+            setIsLoading(false);
+        }
+    };
 
-        return () => {
-            console.log('[FindWork] Cleaning up subscription');
-            unsubscribe();
-        };
+    // Fetch gigs on mount and set up polling
+    useEffect(() => {
+        fetchGigs();
+
+        // Poll for new gigs every 10 seconds
+        const interval = setInterval(fetchGigs, 10000);
+
+        return () => clearInterval(interval);
     }, []);
 
-    // Generate sample gigs if none exist
-    useEffect(() => {
-        if (!isLoading && gigs.length === 0 && !hasGeneratedSamples) {
-            generateSampleGigs().then(() => {
-                setHasGeneratedSamples(true);
-                addNotification('Sample Gigs Created', 'We added some sample gigs for testing!', 'info');
-            }).catch(err => console.error('Error generating samples:', err));
-        }
-    }, [isLoading, gigs.length, hasGeneratedSamples, addNotification]);
-
     const handleAcceptGig = async (gig: Gig) => {
-        if (!user || !gig.id) return;
+        if (!user) {
+            addNotification('Login Required', 'Please login to accept gigs', 'warning');
+            return;
+        }
 
-        setAcceptingGigId(gig.id);
+        const gigId = gig._id || gig.id;
+        if (!gigId) return;
+
+        setAcceptingGigId(gigId);
         try {
-            await acceptGig(gig.id, user.id, user.name);
-            addNotification(
-                'Gig Accepted! 🎉',
-                `You accepted "${gig.title}". The client will be notified.`,
-                'success'
+            const token = localStorage.getItem('token');
+            const response = await axios.post(
+                `/api/gigs/${gigId}/apply`,
+                {},
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
             );
-        } catch (error) {
+
+            if (response.data.success) {
+                addNotification(
+                    'Application Submitted! 🎉',
+                    `You applied for "${gig.title}". The client will be notified.`,
+                    'success'
+                );
+
+                // Refresh gigs list to update status
+                await fetchGigs();
+            }
+        } catch (error: any) {
             console.error('Error accepting gig:', error);
-            addNotification('Error', 'Failed to accept gig. Please try again.', 'warning');
+            const errorMessage = error.response?.data?.message || 'Failed to accept gig. Please try again.';
+            addNotification('Error', errorMessage, 'warning');
         } finally {
             setAcceptingGigId(null);
         }
@@ -127,21 +137,21 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                 <p className="text-slate-500">Browse and accept gigs posted by clients in real-time</p>
             </div>
 
-            {/* Real-time indicator */}
-            {!firebaseError ? (
+            {/* Status indicator */}
+            {!apiError ? (
                 <div className="flex items-center gap-2 mb-6 p-3 bg-green-50 rounded-xl border border-green-200">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-sm font-medium text-green-700">Real-time updates enabled</span>
+                    <span className="text-sm font-medium text-green-700">Auto-refreshing every 10 seconds</span>
                 </div>
             ) : (
                 <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200">
                     <div className="flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                         <div>
-                            <h4 className="text-sm font-bold text-red-800 mb-1">Firebase Configuration Required</h4>
-                            <p className="text-sm text-red-700 mb-2">{firebaseError}</p>
+                            <h4 className="text-sm font-bold text-red-800 mb-1">Error Loading Gigs</h4>
+                            <p className="text-sm text-red-700 mb-2">{apiError}</p>
                             <p className="text-xs text-red-600">
-                                Check the browser developer console (F12) for more details and a direct link to fix this issue.
+                                Please check your connection and try again.
                             </p>
                         </div>
                     </div>
@@ -213,9 +223,18 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                                 <span className="text-sm text-slate-500 capitalize">{gig.category}</span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full" />
-                                            <span className="text-sm font-medium text-green-700">Open</span>
+                                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${gig.status === 'Open'
+                                            ? 'bg-green-50'
+                                            : 'bg-yellow-50'
+                                            }`}>
+                                            <div className={`w-2 h-2 rounded-full ${gig.status === 'Open'
+                                                ? 'bg-green-500'
+                                                : 'bg-yellow-500'
+                                                }`} />
+                                            <span className={`text-sm font-medium ${gig.status === 'Open'
+                                                ? 'text-green-700'
+                                                : 'text-yellow-700'
+                                                }`}>{gig.status}</span>
                                         </div>
                                     </div>
 
@@ -234,7 +253,7 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                         </div>
                                         <div className="flex items-center gap-2 text-slate-500">
                                             <User className="w-4 h-4" />
-                                            <span>Posted by {gig.clientName}</span>
+                                            <span>Posted by {typeof gig.userId === 'object' ? gig.userId.name : 'Client'}</span>
                                         </div>
                                     </div>
 
@@ -246,21 +265,28 @@ const FindWork: React.FC<FindWorkProps> = ({ user, addNotification }) => {
                                         </div>
                                         <button
                                             onClick={() => handleAcceptGig(gig)}
-                                            disabled={acceptingGigId === gig.id || !user}
-                                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${acceptingGigId === gig.id
-                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                            disabled={acceptingGigId === (gig._id || gig.id) || !user || gig.status !== 'Open'}
+                                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${acceptingGigId === (gig._id || gig.id)
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : gig.status === 'Pending'
+                                                        ? 'bg-yellow-100 text-yellow-700 cursor-not-allowed'
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
                                                 }`}
                                         >
-                                            {acceptingGigId === gig.id ? (
+                                            {acceptingGigId === (gig._id || gig.id) ? (
                                                 <>
                                                     <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-                                                    Accepting...
+                                                    Applying...
+                                                </>
+                                            ) : gig.status === 'Pending' ? (
+                                                <>
+                                                    <CheckCircle className="w-5 h-5" />
+                                                    Applied
                                                 </>
                                             ) : (
                                                 <>
                                                     <CheckCircle className="w-5 h-5" />
-                                                    Accept Gig
+                                                    Apply for Gig
                                                 </>
                                             )}
                                         </button>
