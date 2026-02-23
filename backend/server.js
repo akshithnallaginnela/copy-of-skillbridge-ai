@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
@@ -55,4 +56,9 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    if (!process.env.JWT_SECRET) {
+        console.error('❌ FATAL: JWT_SECRET is not defined in .env file');
+    } else {
+        console.log('✅ JWT_SECRET loaded');
+    }
 });
